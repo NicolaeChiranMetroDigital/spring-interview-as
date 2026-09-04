@@ -41,7 +41,10 @@ public class QueueService {
     boolean delivered = false;
     String lastError = null;
 
-    //TODO: Implement retry logic for failed deliveries
+    //TODO Implement the retry logic for processing the queue item.
+    // The item should be retried up to MAX_RETRIES times in case of failure.
+    // If the item is successfully delivered, mark it as processed.
+    // If it fails after all retries, mark it as failed and store the last error message.
 
     return responseBody(item, delivered);
   }
