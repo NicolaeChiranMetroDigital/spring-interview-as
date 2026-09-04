@@ -2,17 +2,14 @@ package com.interview.as.service;
 
 import com.interview.as.model.CountryCode;
 import com.interview.as.model.QueueItem;
+import com.interview.as.model.QueueItemStatus;
 import com.interview.as.model.QueueItemType;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class QueueService {
@@ -28,25 +25,40 @@ public class QueueService {
     seedQueue();
   }
 
-  public Map<String, Object> processNext(CountryCode countryCode) {
-    Optional<QueueItem> next = acquireNextPendingItem(countryCode);
-    if (next.isEmpty()) {
+  public Map<String, Object> processCountry(CountryCode countryCode) {
+    List<QueueItem> pendingItems = acquirePendingItems(countryCode);
+    if (pendingItems.isEmpty()) {
       return Map.of(
           "countryCode", countryCode,
           "status", "EMPTY",
           "message", "No pending items available for the selected country.");
     }
 
-    QueueItem item = next.get();
+    List<Map<String, Object>> processedItems = new ArrayList<>();
+    QueueItem lastItem = null;
+    boolean allDelivered = true;
+
+    //TODO: Implement the processing of the pending items, including retry logic and error handling.
+
+    Map<String, Object> response = responseBody(lastItem, allDelivered);
+    response.put("status", allDelivered ? lastItem.status() : QueueItemStatus.FAILED);
+    response.put(
+        "message",
+        allDelivered
+            ? "All items delivered to dummy API."
+            : "One or more items failed while processing the country queue.");
+    response.put("processedCount", processedItems.size());
+    response.put("items", processedItems);
+    return response;
+  }
+
+  private boolean tryDeliver(QueueItem item) {
     boolean delivered = false;
     String lastError = null;
 
-    //TODO Implement the retry logic for processing the queue item.
-    // The item should be retried up to MAX_RETRIES times in case of failure.
-    // If the item is successfully delivered, mark it as processed.
-    // If it fails after all retries, mark it as failed and store the last error message.
+    //TODO: Implement the retry logic for delivering the item to the dummy API, updating the item's status and last error accordingly.
 
-    return responseBody(item, delivered);
+    return delivered;
   }
 
   private Map<String, Object> responseBody(QueueItem item, boolean delivered) {
@@ -61,11 +73,12 @@ public class QueueService {
     return response;
   }
 
-  private Optional<QueueItem> acquireNextPendingItem(CountryCode countryCode) {
+  private List<QueueItem> acquirePendingItems(CountryCode countryCode) {
     return queue.stream()
         .filter(item -> item.countryCode() == countryCode)
         .filter(QueueItem::isAvailableForProcessing)
-        .min(Comparator.comparingLong(QueueItem::id));
+        .sorted(Comparator.comparingLong(QueueItem::id))
+        .toList();
   }
 
   private void seedQueue() {
